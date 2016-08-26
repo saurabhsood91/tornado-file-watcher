@@ -60,6 +60,5 @@ if __name__ == '__main__':
 
     app = make_app()
     app.listen(8888)
-    instance = StartPyINotify()
     tornado.ioloop.IOLoop.instance().add_callback(instance.run)
     tornado.ioloop.IOLoop.current().start()
