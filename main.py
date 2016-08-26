@@ -1,5 +1,6 @@
 import tornado.ioloop
 import tornado.web
+from concurrent import futures
 from threading import Thread
 from settings import watch_directories
 import logging
@@ -10,8 +11,10 @@ from watchdog.events import LoggingEventHandler
 def make_app():
     return tornado.web.Application()
 
-class StartWatchDog(Thread):
-    def run(self):
+class StartWatchDog(object):
+    executor = futures.ThreadPoolExecutor(max_workers=1)
+
+    def __init__(self):
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(message)s',
@@ -24,6 +27,10 @@ class StartWatchDog(Thread):
             observer.schedule(event_handler, directory, recursive=False)
             observer.start()
 
+    @tornado.concurrent.run_on_executor
+    def run(self):
+        tornado.ioloop.IOLoop.instance().add_callback(self.run)
+
 class StartPyINotify(Thread):
     def run(self):
         pass
@@ -34,5 +41,5 @@ if __name__ == '__main__':
     app.listen(8888)
     # start the Watchdog
     watchdog_instance = StartWatchDog()
-    watchdog_instance.start()
+    tornado.ioloop.IOLoop.instance().add_callback(watchdog_instance.run)
     tornado.ioloop.IOLoop.current().start()
