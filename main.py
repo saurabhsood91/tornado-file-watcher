@@ -1,19 +1,23 @@
 import tornado.ioloop
 import tornado.web
 from concurrent import futures
-from threading import Thread
 from settings import watch_directories
 import logging
-
+import pyinotify
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
+import argparse
 
 def make_app():
     return tornado.web.Application()
 
-class StartWatchDog(object):
+class FileWatcher(object):
     executor = futures.ThreadPoolExecutor(max_workers=1)
+    @tornado.concurrent.run_on_executor
+    def run(self):
+        tornado.ioloop.IOLoop.instance().add_callback(self.run)
 
+class StartWatchDog(FileWatcher):
     def __init__(self):
         logging.basicConfig(
             level=logging.INFO,
@@ -27,19 +31,35 @@ class StartWatchDog(object):
             observer.schedule(event_handler, directory, recursive=False)
             observer.start()
 
-    @tornado.concurrent.run_on_executor
-    def run(self):
-        tornado.ioloop.IOLoop.instance().add_callback(self.run)
+class EventHandler(pyinotify.ProcessEvent):
+    def process_IN_CREATE(self, event):
+        print 'Creating: ', event.pathname
+    def process_IN_DELETE(self, event):
+        print 'Removing: ', event.pathname
 
-class StartPyINotify(Thread):
-    def run(self):
-        pass
+class StartPyINotify(FileWatcher):
+    def __init__(self):
+        wm = pyinotify.WatchManager()
+        mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE
+        handler = EventHandler()
+        notifier = pyinotify.Notifier(wm, handler)
 
+        for directory in watch_directories:
+            wm.add_watch(directory, mask, rec=False)
+        notifier.loop()
 
 if __name__ == '__main__':
+    # Parse arguments and instantiate appropriate watcher
+    parser = argparse.ArgumentParser(description='Notifier to use')
+    parser.add_argument('--notifier', help='Either (pyinotify, watchdog)')
+    args = parser.parse_args()
+    if args.notifier == 'pyinotify':
+        instance = StartPyINotify()
+    else:
+        instance = StartWatchDog()
+
     app = make_app()
     app.listen(8888)
-    # start the Watchdog
-    watchdog_instance = StartWatchDog()
-    tornado.ioloop.IOLoop.instance().add_callback(watchdog_instance.run)
+    instance = StartPyINotify()
+    tornado.ioloop.IOLoop.instance().add_callback(instance.run)
     tornado.ioloop.IOLoop.current().start()
