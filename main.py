@@ -1,7 +1,7 @@
 import tornado.ioloop
 import tornado.web
 from concurrent import futures
-from settings import watch_directories
+from settings import WATCH_DIRECTORIES
 import logging
 import pyinotify
 from watchdog.observers import Observer
@@ -25,7 +25,7 @@ class StartWatchDog(FileWatcher):
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         # watch a set of directories
-        for directory in watch_directories:
+        for directory in WATCH_DIRECTORIES:
             event_handler = LoggingEventHandler()
             observer = Observer()
             observer.schedule(event_handler, directory, recursive=False)
@@ -44,7 +44,7 @@ class StartPyINotify(FileWatcher):
         handler = EventHandler()
         notifier = pyinotify.Notifier(wm, handler)
 
-        for directory in watch_directories:
+        for directory in WATCH_DIRECTORIES:
             wm.add_watch(directory, mask, rec=False)
         notifier.loop()
 

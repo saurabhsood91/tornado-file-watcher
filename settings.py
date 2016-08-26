@@ -1,4 +1,4 @@
-watch_directories = (
+WATCH_DIRECTORIES = (
     '/tmp',
     '/home/saurabh'
 )
