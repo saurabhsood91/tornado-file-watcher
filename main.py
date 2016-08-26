@@ -7,17 +7,18 @@ import pyinotify
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 import argparse
+import os
 
 def make_app():
     return tornado.web.Application()
 
-class FileWatcher(object):
-    executor = futures.ThreadPoolExecutor(max_workers=1)
-    @tornado.concurrent.run_on_executor
-    def run(self):
-        tornado.ioloop.IOLoop.instance().add_callback(self.run)
+# class FileWatcher(object):
+#     executor = futures.ThreadPoolExecutor(max_workers=1)
+#     @tornado.concurrent.run_on_executor
+#     def run(self):
+#         tornado.ioloop.IOLoop.instance().add_callback(self.run)
 
-class StartWatchDog(FileWatcher):
+class StartWatchDog(object):
     def __init__(self):
         logging.basicConfig(
             level=logging.INFO,
@@ -37,7 +38,7 @@ class EventHandler(pyinotify.ProcessEvent):
     def process_IN_DELETE(self, event):
         print 'Removing: ', event.pathname
 
-class StartPyINotify(FileWatcher):
+class StartPyINotify(object):
     def __init__(self):
         wm = pyinotify.WatchManager()
         mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE
@@ -53,6 +54,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Notifier to use')
     parser.add_argument('--notifier', help='Either (pyinotify, watchdog)')
     args = parser.parse_args()
+
+    # get watch directories from environment variables
+    watch_dirs = os.environ.get('WATCHDIRS')
+    if watch_dirs:
+        WATCH_DIRECTORIES = watch_dirs.split(';')
+
     if args.notifier == 'pyinotify':
         instance = StartPyINotify()
     else:
@@ -60,5 +67,5 @@ if __name__ == '__main__':
 
     app = make_app()
     app.listen(8888)
-    tornado.ioloop.IOLoop.instance().add_callback(instance.run)
+    # tornado.ioloop.IOLoop.instance().add_callback(instance.run)
     tornado.ioloop.IOLoop.current().start()
